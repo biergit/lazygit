@@ -956,7 +956,7 @@ func EnglishTranslationSet() TranslationSet {
 		RebaseOptionsTitle:                  "Rebase options",
 		CommitSummaryTitle:                  "Commit summary",
 		CommitDescriptionTitle:              "Commit description",
-		CommitDescriptionSubTitle:           "Press {{.togglePanelKeyBinding}} to toggle focus",
+		CommitDescriptionSubTitle:           "Press {{.togglePanelKeyBinding}} to toggle focus, {{.switchToEditorKeyBinding}} to switch to editor",
 		LocalBranchesTitle:                  "Local branches",
 		SearchTitle:                         "Search",
 		TagsTitle:                           "Tags",

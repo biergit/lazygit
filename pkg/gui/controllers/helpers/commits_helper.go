@@ -1,9 +1,12 @@
 package helpers
 
 import (
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jesseduffield/lazygit/pkg/gui/types"
+	"github.com/samber/lo"
 )
 
 type ICommitsHelper interface {
@@ -62,6 +65,18 @@ func (self *CommitsHelper) JoinCommitMessageAndDescription() string {
 	return self.getCommitSummary() + "\n" + self.getCommitDescription()
 }
 
+func (self *CommitsHelper) WriteCommitMessageToFile() (string, error) {
+	message := lo.Ternary(len(self.getCommitDescription()) == 0,
+		self.getCommitSummary(),
+		self.getCommitSummary()+"\n\n"+self.getCommitDescription())
+	filepath := filepath.Join(self.c.OS().GetTempDir(), self.c.Git().RepoPaths.RepoName(), time.Now().Format("Jan _2 15.04.05.000000000")+".msg")
+	if err := self.c.OS().CreateFileWithContent(filepath, message); err != nil {
+		return "", err
+	}
+
+	return filepath, nil
+}
+
 func (self *CommitsHelper) UpdateCommitPanelView(message string) {
 	if message != "" {
 		self.SetMessageAndDescriptionInView(message)
@@ -83,6 +98,7 @@ type OpenCommitMessagePanelOpts struct {
 	DescriptionTitle string
 	PreserveMessage  bool
 	OnConfirm        func(summary string, description string) error
+	OnSwitchToEditor func(string) error
 	InitialMessage   string
 }
 
@@ -101,6 +117,7 @@ func (self *CommitsHelper) OpenCommitMessagePanel(opts *OpenCommitMessagePanelOp
 		opts.DescriptionTitle,
 		opts.PreserveMessage,
 		onConfirm,
+		opts.OnSwitchToEditor,
 	)
 
 	self.UpdateCommitPanelView(opts.InitialMessage)

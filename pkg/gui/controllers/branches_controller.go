@@ -141,6 +141,26 @@ func (self *BranchesController) setUpstream(selectedBranch *models.Branch) error
 		Title: self.c.Tr.Actions.SetUnsetUpstream,
 		Items: []*types.MenuItem{
 			{
+				LabelColumns: []string{self.c.Tr.ViewDivergenceFromUpstream},
+				OnPress: func() error {
+					ref := self.context().GetSelectedRef()
+					if ref == nil {
+						return nil
+					}
+
+					upstreamRefName := ""
+					if branch, ok := ref.(*models.Branch); ok {
+						if branch.UpstreamRemote != "" && branch.UpstreamBranch != "" {
+							upstreamRefName = fmt.Sprintf("refs/remotes/%s/%s", branch.UpstreamRemote, branch.UpstreamBranch)
+						} else {
+							return self.c.ErrorMsg(self.c.Tr.DivergenceNoUpstream)
+						}
+					}
+					return self.c.Helpers().SubCommits.ViewSubCommits(ref, upstreamRefName, self.context(), false)
+				},
+				Key: 'v',
+			},
+			{
 				LabelColumns: []string{self.c.Tr.UnsetUpstream},
 				OnPress: func() error {
 					if err := self.c.Git().Branch.UnsetUpstream(selectedBranch.Name); err != nil {

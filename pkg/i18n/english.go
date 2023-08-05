@@ -343,6 +343,8 @@ type TranslationSet struct {
 	SetAsUpstream                       string
 	SetUpstream                         string
 	UnsetUpstream                       string
+	ViewDivergenceFromUpstream          string
+	DivergenceNoUpstream                string
 	SetUpstreamTitle                    string
 	SetUpstreamMessage                  string
 	EditRemote                          string
@@ -1106,6 +1108,8 @@ func EnglishTranslationSet() TranslationSet {
 		SetAsUpstream:                       "Set as upstream of checked-out branch",
 		SetUpstream:                         "Set upstream of selected branch",
 		UnsetUpstream:                       "Unset upstream of selected branch",
+		ViewDivergenceFromUpstream:          "View divergence from upstream",
+		DivergenceNoUpstream:                "Cannot show divergence of a branch that has no upstream",
 		SetUpstreamTitle:                    "Set upstream branch",
 		SetUpstreamMessage:                  "Are you sure you want to set the upstream branch of '{{.checkedOut}}' to '{{.selected}}'",
 		EditRemote:                          "Edit remote",

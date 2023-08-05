@@ -25,13 +25,14 @@ func NewSubCommitsHelper(
 	}
 }
 
-func (self *SubCommitsHelper) ViewSubCommits(ref types.Ref, context types.Context, showBranchHeads bool) error {
+func (self *SubCommitsHelper) ViewSubCommits(ref types.Ref, refForSymmetricDifference string, context types.Context, showBranchHeads bool) error {
 	commits, err := self.c.Git().Loaders.CommitLoader.GetCommits(
 		git_commands.GetCommitsOptions{
-			Limit:                true,
-			FilterPath:           self.c.Modes().Filtering.GetPath(),
-			IncludeRebaseCommits: false,
-			RefName:              ref.FullRefName(),
+			Limit:                   true,
+			FilterPath:              self.c.Modes().Filtering.GetPath(),
+			IncludeRebaseCommits:    false,
+			RefName:                 ref.FullRefName(),
+			RefToShowDivergenceFrom: refForSymmetricDifference,
 		},
 	)
 	if err != nil {

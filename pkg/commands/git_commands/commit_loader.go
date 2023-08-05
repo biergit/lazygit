@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,6 +68,8 @@ type GetCommitsOptions struct {
 	RefName              string // e.g. "HEAD" or "my_branch"
 	// determines if we show the whole git graph i.e. pass the '--all' flag
 	All bool
+	// If non-empty, show divergence from this ref (left-right log)
+	RefToShowDivergenceFrom string
 }
 
 // GetCommits obtains the commits of the current branch
@@ -92,7 +95,7 @@ func (self *CommitLoader) GetCommits(opts GetCommitsOptions) ([]*models.Commit, 
 		defer wg.Done()
 
 		logErr = self.getLogCmd(opts).RunAndProcessLines(func(line string) (bool, error) {
-			commit := self.extractCommitFromLine(line)
+			commit := self.extractCommitFromLine(line, opts.RefToShowDivergenceFrom != "")
 			commits = append(commits, commit)
 			return false, nil
 		})
@@ -138,6 +141,13 @@ func (self *CommitLoader) GetCommits(opts GetCommitsOptions) ([]*models.Commit, 
 		commits = setCommitMergedStatuses(ancestor, commits)
 	}
 
+	if opts.RefToShowDivergenceFrom != "" {
+		sort.SliceStable(commits, func(i, j int) bool {
+			// In the divergence view we want incoming commits to come first
+			return commits[i].Divergence > commits[j].Divergence
+		})
+	}
+
 	return commits, nil
 }
 
@@ -176,8 +186,8 @@ func (self *CommitLoader) MergeRebasingCommits(commits []*models.Commit) ([]*mod
 // then puts them into a commit object
 // example input:
 // 8ad01fe32fcc20f07bc6693f87aa4977c327f1e1|10 hours ago|Jesse Duffield| (HEAD -> master, tag: v0.15.2)|refresh commits when adding a tag
-func (self *CommitLoader) extractCommitFromLine(line string) *models.Commit {
-	split := strings.SplitN(line, "\x00", 7)
+func (self *CommitLoader) extractCommitFromLine(line string, showDivergence bool) *models.Commit {
+	split := strings.SplitN(line, "\x00", 8)
 
 	sha := split[0]
 	unixTimestamp := split[1]
@@ -186,6 +196,10 @@ func (self *CommitLoader) extractCommitFromLine(line string) *models.Commit {
 	extraInfo := strings.TrimSpace(split[4])
 	parentHashes := split[5]
 	message := split[6]
+	divergence := models.DivergenceNone
+	if showDivergence {
+		divergence = lo.Ternary(split[7] == "<", models.DivergenceLocal, models.DivergenceUpstream)
+	}
 
 	tags := []string{}
 
@@ -219,6 +233,7 @@ func (self *CommitLoader) extractCommitFromLine(line string) *models.Commit {
 		AuthorName:    authorName,
 		AuthorEmail:   authorEmail,
 		Parents:       parents,
+		Divergence:    divergence,
 	}
 }
 
@@ -248,7 +263,7 @@ func (self *CommitLoader) getHydratedRebasingCommits(rebaseMode enums.RebaseMode
 
 	fullCommits := map[string]*models.Commit{}
 	err = cmdObj.RunAndProcessLines(func(line string) (bool, error) {
-		commit := self.extractCommitFromLine(line)
+		commit := self.extractCommitFromLine(line, false)
 		fullCommits[commit.Sha] = commit
 		return false, nil
 	})
@@ -619,8 +634,13 @@ func (self *CommitLoader) getFirstPushedCommit(refName string) (string, error) {
 func (self *CommitLoader) getLogCmd(opts GetCommitsOptions) oscommands.ICmdObj {
 	config := self.UserConfig.Git.Log
 
+	refSpec := opts.RefName
+	if opts.RefToShowDivergenceFrom != "" {
+		refSpec += "..." + opts.RefToShowDivergenceFrom
+	}
+
 	cmdArgs := NewGitCmd("log").
-		Arg(opts.RefName).
+		Arg(refSpec).
 		ArgIf(config.Order != "default", "--"+config.Order).
 		ArgIf(opts.All, "--all").
 		Arg("--oneline").
@@ -629,6 +649,7 @@ func (self *CommitLoader) getLogCmd(opts GetCommitsOptions) oscommands.ICmdObj {
 		ArgIf(opts.Limit, "-300").
 		ArgIf(opts.FilterPath != "", "--follow").
 		Arg("--no-show-signature").
+		ArgIf(opts.RefToShowDivergenceFrom != "", "--left-right").
 		Arg("--").
 		ArgIf(opts.FilterPath != "", opts.FilterPath).
 		ToArgv()
@@ -636,4 +657,4 @@ func (self *CommitLoader) getLogCmd(opts GetCommitsOptions) oscommands.ICmdObj {
 	return self.cmd.New(cmdArgs).DontLog()
 }
 
-const prettyFormat = `--pretty=format:%H%x00%at%x00%aN%x00%ae%x00%D%x00%p%x00%s`
+const prettyFormat = `--pretty=format:%H%x00%at%x00%aN%x00%ae%x00%D%x00%p%x00%s%x00%m`

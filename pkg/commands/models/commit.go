@@ -30,6 +30,14 @@ const (
 	ActionConflict = todo.Comment + 1
 )
 
+type Divergence int
+
+const (
+	DivergenceNone Divergence = iota
+	DivergenceLocal
+	DivergenceUpstream
+)
+
 // Commit : A git commit
 type Commit struct {
 	Sha           string
@@ -41,6 +49,7 @@ type Commit struct {
 	AuthorName    string // something like 'Jesse Duffield'
 	AuthorEmail   string // something like 'jessedduffield@gmail.com'
 	UnixTimestamp int64
+	Divergence    Divergence
 
 	// SHAs of parent commits (will be multiple if it's a merge commit)
 	Parents []string
